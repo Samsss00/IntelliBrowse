@@ -1,0 +1,12 @@
+.git
+runs
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.env
+.env.*
+node_modules
+.playwright
+.cache
+.venv

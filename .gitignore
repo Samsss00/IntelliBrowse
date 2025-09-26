@@ -1,0 +1,82 @@
+# ---- Python basics ----
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+*.pyo
+*.pkl
+*.sqlite3
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+pip-wheel-metadata/
+
+# ---- Virtual envs ----
+.venv/
+venv/
+env/
+ENV/
+
+# ---- Testing / coverage ----
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+.dmypy.json
+.pyre/
+.cache/
+
+# ---- IDE / editor ----
+.vscode/
+.idea/
+*.iml
+
+# ---- OS junk ----
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Icon?
+desktop.ini
+
+# ---- Environment / secrets ----
+.env
+.env.*
+!.env.example
+
+# ---- Logs & debug ----
+logs/
+*.log
+
+# ---- Runtime artifacts (screenshots, exports, temp runs) ----
+runs/
+tmp/
+temp/
+
+# ---- Playwright (python) caches (if created in project) ----
+.playwright/
+ms-playwright/
+
+# ---- Node (if any small frontend sneaks in) ----
+node_modules/
+npm-debug.log*
+yarn-error.log
+
+# ---- Docker / containers ----
+*.pid
+*.seed
+*.pid.lock
+
+# ---- Jupyter (if used) ----
+.ipynb_checkpoints/
+*.ipynb
+
+# ---- Misc file patterns you likely don’t want in git ----
+*.swp
+*.swo
+*.orig
+*.bak
+*.tmp
