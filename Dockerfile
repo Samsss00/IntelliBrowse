@@ -24,3 +24,10 @@ EXPOSE 8000
 
 # Use auto-detecting launcher
 CMD ["/app/start.sh"]
+# ensure default writable dir inside container
+ENV HEADLESS=true \
+    RUNS_DIR=/app/runs
+
+# make the dir and relax permissions (useful with Windows bind mounts)
+RUN mkdir -p /app/runs && chmod 777 /app/runs
+

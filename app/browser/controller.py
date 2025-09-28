@@ -1,63 +1,98 @@
 # app/browser/controller.py
+from __future__ import annotations
+
+import os, random
 from typing import Optional
-from playwright.sync_api import sync_playwright, Browser, Page
-from app.config.settings import HEADLESS, SLOW_MO
-from app.utils.logger import logger
+from playwright.sync_api import sync_playwright
 
 class BrowserController:
-    def __init__(self, run_dir: str, user_agent: Optional[str] = None):
-        self._pw = None
-        self.browser: Optional[Browser] = None
-        self.page: Optional[Page] = None
+    def __init__(self, run_dir: str):
         self.run_dir = run_dir
-        self.user_agent = user_agent or (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/120.0.0.0 Safari/537.36"
-        )
+        self._pw = None
+        self.browser = None
+        self.page = None
 
     def __enter__(self):
+        os.makedirs(self.run_dir, exist_ok=True)
         self._pw = sync_playwright().start()
-        self.browser = self._pw.chromium.launch(headless=HEADLESS, slow_mo=SLOW_MO)
-        context = self.browser.new_context(
-            user_agent=self.user_agent,
-            viewport={"width": 1366, "height": 820},
-            java_script_enabled=True,
+        headless = (os.getenv("HEADLESS", "true").lower() == "true")
+
+        self.browser = self._pw.chromium.launch(
+            headless=headless,
+            args=[
+                "--no-sandbox",
+                "--disable-blink-features=AutomationControlled",
+                "--disable-dev-shm-usage",
+                "--disable-features=IsolateOrigins,site-per-process",
+            ],
         )
+
+        # Randomize viewport a bit to avoid obvious bot fingerprint
+        vw = random.randint(1280, 1440)
+        vh = random.randint(820, 920)
+
+        context = self.browser.new_context(
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
+            locale="en-IN",
+            timezone_id="Asia/Kolkata",
+            viewport={"width": vw, "height": vh},
+            extra_http_headers={
+                "Accept-Language": "en-IN,en;q=0.9",
+                "Sec-CH-UA": '"Chromium";v="124", "Not:A-Brand";v="99"',
+                "Sec-CH-UA-Platform": '"Windows"',
+            },
+        )
+
         self.page = context.new_page()
+
+        # Hint Amazon about currency/locale via cookies (best-effort)
+        try:
+            self.page.context.add_cookies([
+                {"name": "lc-main", "value": "en_IN", "domain": ".amazon.in", "path": "/"},
+                {"name": "i18n-prefs", "value": "INR", "domain": ".amazon.in", "path": "/"},
+            ])
+        except Exception:
+            pass
+
+        try:
+            self.page.set_default_timeout(10_000)
+            self.page.set_default_navigation_timeout(20_000)
+        except Exception:
+            pass
         return self
 
     def __exit__(self, exc_type, exc, tb):
         try:
+            if self.page:
+                self.page.context.close()
             if self.browser:
                 self.browser.close()
         finally:
             if self._pw:
                 self._pw.stop()
 
-    def goto(self, url: str, wait: str = "domcontentloaded", timeout: int = 60000):
-        assert self.page
-        logger.debug(f"Goto: {url}")
-        self.page.goto(url, wait_until=wait, timeout=timeout)
+    def goto(self, url: str, timeout: Optional[int] = 60_000, wait_until: str = "domcontentloaded"):
+        if not self.page:
+            raise RuntimeError("BrowserController: page not initialized")
+        return self.page.goto(url, timeout=timeout, wait_until=wait_until)
 
-    def click(self, selector: str, timeout: int = 10000):
-        assert self.page
-        self.page.wait_for_selector(selector, timeout=timeout)
-        self.page.click(selector)
-
-    def fill(self, selector: str, value: str, timeout: int = 10000):
-        assert self.page
-        self.page.wait_for_selector(selector, timeout=timeout)
-        self.page.fill(selector, value)
-
-    def type_and_submit(self, selector: str, text: str):
-        assert self.page
-        self.fill(selector, text)
-        self.page.keyboard.press("Enter")
-
-    def screenshot(self, filename: str) -> str:
-        assert self.page
-        import os
+    def screenshot(self, filename: str, full_page: bool = True) -> str:
+        if not self.page:
+            raise RuntimeError("BrowserController: page not initialized")
         path = os.path.join(self.run_dir, filename)
-        self.page.screenshot(path=path, full_page=True)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        self.page.screenshot(path=path, full_page=full_page)
+        return path
+
+    def save_html(self, filename: str) -> str:
+        if not self.page:
+            raise RuntimeError("BrowserController: page not initialized")
+        path = os.path.join(self.run_dir, filename)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(self.page.content())
         return path
